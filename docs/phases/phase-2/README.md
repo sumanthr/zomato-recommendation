@@ -2,9 +2,9 @@
 
 ## Source files
 
-- `src/phases/phase_2/config.py` - budget bands, weights, fallback order, cuisine synonyms
-- `src/phases/phase_2/normalization.py` - input normalization and fuzzy location matching
-- `src/phases/phase_2/retriever.py` - hard filters, weighted scoring, fallback tiers
+- `src/phases/phase_2/config.py` - budget bands (for categorical budgets), weights, optional fallback order, small cuisine synonym map
+- `src/phases/phase_2/normalization.py` - input normalization; locality **exact-then-fuzzy** against inventory
+- `src/phases/phase_2/retriever.py` - hard filters, weighted scoring; **numeric budget** = max `avg_cost_for_two`; strict default (no irrelevant backfill)
 - `src/phases/phase_2/pipeline.py` - executable runner for phase-specific testing
 
 ## Test files

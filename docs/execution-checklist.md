@@ -2,6 +2,20 @@
 
 This checklist is implementation-focused and sequenced to build phase-by-phase with clear dependencies, acceptance criteria, and done-definition.
 
+## Implementation status (as of latest `main`)
+
+The following reflects the **current codebase** (phase folders under `src/phases/`, full Hugging Face ingestion supported, Groq for LLM when used):
+
+- [x] Phase 0: contracts (`UserPreferenceInput`, `RecommendationResponse`, etc.) and scaffold
+- [x] Phase 1: download + curate pipeline; HF column mapping (`location`→locality, `listed_in(city)`→city, `rate`→rating, `approx_cost…`→cost)
+- [x] Phase 2: strict retrieval, scoring, locality inventory; numeric budget as max cost for two; `GET /localities`, `GET /dataset-summary`
+- [x] Phase 3: Groq client + prompt + deterministic fallback + dedupe
+- [x] Phase 4: FastAPI orchestration, CORS, metrics
+- [x] Phase 5: React UI (locality dropdown, filters, cards with locality; no refine/craving bar)
+- [x] Phase 6–7: eval scaffolding, Docker/deploy helpers, dev scripts
+
+Outstanding / optional polish: expand automated e2e tests, CI on GitHub Actions, optional relaxed retrieval flags for research only.
+
 ## How to use this checklist
 
 - Mark each task as `[ ]` -> `[x]` when completed.
@@ -122,14 +136,9 @@ This checklist is implementation-focused and sequenced to build phase-by-phase w
 - [ ] Expose score breakdown fields per candidate.
 
 ### Fallback policies
-- [ ] Define and implement fallback tiers:
-  - [ ] strict
-  - [ ] relaxed budget
-  - [ ] relaxed cuisine
-  - [ ] widened locality
-- [ ] top-k completion fallback (global rated pool) if candidate count is below requested `top_k`
-- [ ] Emit `fallback_tier` and `fallback_reason`.
-- [ ] Ensure fallback order is configurable.
+- [x] Strict tier as default product behavior (no irrelevant backfill).
+- [ ] Optional relaxed tiers (budget / cuisine / locality) for experiments only — not required for default UX.
+- [x] Emit `fallback_tier` (and internal reasons in retrieval layer where applicable).
 
 ### Performance
 - [ ] Add retrieval latency instrumentation.
@@ -241,9 +250,7 @@ This checklist is implementation-focused and sequenced to build phase-by-phase w
 - [ ] Add loading, error, and empty states.
 
 ### Refinement loop
-- [ ] Add quick-refine actions (cheaper/higher rated/nearby).
-- [ ] Preserve prior selections between iterations.
-- [ ] Display fallback message when constraints were relaxed.
+- [x] Not implemented in current UI (by design); user changes form fields and resubmits.
 
 ### UX validation
 - [ ] Run 5-10 user walkthroughs.

@@ -1,23 +1,27 @@
 # Phase 0 Contracts
 
+This document matches the Pydantic models in `src/phases/phase_0/schemas.py` and the live API behavior in `src/phases/phase_4/api.py`.
+
 ## Request Contract: `UserPreferenceInput`
 
 ```json
 {
   "location": "Indiranagar",
   "budget": 1200,
-  "cuisine": "Italian",
+  "cuisine": "North Indian",
   "minimum_rating": 4.0,
-  "additional_preferences": "family friendly",
-  "top_k": 5
+  "additional_preferences": null,
+  "top_k": 50
 }
 ```
 
 Validation rules:
-- `location` should be locality (for example `Indiranagar`, `Koramangala`).
-- `budget` should be numeric amount for two (legacy values `low | medium | high` still supported).
-- `minimum_rating` must be in range `0.0..5.0`.
-- `top_k` must be in range `1..20`.
+
+- `location`: **locality** string (minimum length 2). The backend normalizes against the curated locality inventory (exact match preferred, then fuzzy).
+- `budget`: numeric **maximum cost for two** (amount in INR), or legacy categorical `low` | `medium` | `high`. Numeric values must be `>= 0`.
+- `cuisine`: free text (minimum length 2); matched against parsed cuisine lists from the dataset.
+- `minimum_rating`: `0.0` … `5.0`.
+- `top_k`: integer `1` … `200` (default in schema is `50`; the UI may send a fixed upper value to return “all relevant” rows up to that cap).
 
 ## Data Contract: `RestaurantRecord`
 
@@ -40,6 +44,7 @@ Validation rules:
 {
   "restaurant_id": "16774318",
   "name": "Olive Bistro",
+  "locality": "Indiranagar",
   "cuisines": ["italian", "continental"],
   "rating": 4.4,
   "avg_cost_for_two": 1800.0,
@@ -52,33 +57,42 @@ Validation rules:
 }
 ```
 
+`locality` is populated from the curated table for display and deduplication.
+
 ## Response Contract: `RecommendationResponse`
 
 ```json
 {
   "normalized_input": {
-    "location": "indiranagar",
-    "budget": "medium",
-    "cuisine": "italian",
+    "location": "Indiranagar",
+    "budget": 1200,
+    "cuisine": "north indian",
     "minimum_rating": 4.0,
-    "additional_preferences": "family friendly",
-    "top_k": 5
+    "additional_preferences": null,
+    "top_k": 50
   },
   "recommendations": [
     {
       "restaurant_name": "Olive Bistro",
+      "locality": "Indiranagar",
       "cuisine": "Italian",
       "rating": 4.4,
       "estimated_cost": 1800.0,
-      "explanation": "Strong cuisine match with budget fit and high user rating.",
+      "explanation": "Optional text when LLM path is used; may be a short fallback string when ranking is deterministic.",
       "fit_score": 91
     }
   ],
   "metadata": {
     "prompt_version": "v1",
-    "model_version": "gpt-4o-mini",
-    "data_version": "2026-04-06",
-    "fallback_tier": "none"
+    "model_version": "llama-3.1-8b-instant",
+    "data_version": "2026-04-07",
+    "fallback_tier": "strict"
   }
 }
 ```
+
+Notes:
+
+- `metadata.model_version` comes from env `LLM_MODEL` (Groq).
+- `metadata.fallback_tier` reflects retrieval outcome (e.g. `strict`, `no_candidates`).
+- The React UI may hide `explanation` and show only dataset-grounded fields.

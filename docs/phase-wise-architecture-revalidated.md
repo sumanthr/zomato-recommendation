@@ -1,5 +1,21 @@
 # Zomato AI Recommendation - Revalidated Phase-wise Architecture
 
+## As-built alignment (summary)
+
+The repository implements the hybrid pattern end-to-end with **phase folders** under `src/phases/`. Key behavioral choices that differ from earlier drafts:
+
+| Area | As-built behavior |
+|------|-------------------|
+| Phase 1 | HF dataset `ManikaSaini/zomato-restaurant-recommendation`; map `location`→locality, `listed_in(city)`→city, `rate`→rating, `approx_cost(for two people)`→cost |
+| Phase 2 | Strict filtering by locality, rating, cuisine overlap, budget; numeric budget = max cost for two; locality exact-then-fuzzy |
+| Phase 3 | Groq LLM optional; deterministic ranking + dedupe by name+locality when needed |
+| Phase 4 | FastAPI: `/recommendations`, `/health`, `/metrics`, `/localities`, `/dataset-summary`, CORS |
+| Phase 5 | React form + cards; no refine/craving bar; shows locality on cards |
+
+See also `docs/phase-wise-architecture.md` **As-built implementation** for the same facts in prose.
+
+---
+
 ## 1) Revalidated Strategy (Why this architecture is right)
 
 This architecture intentionally uses a **hybrid recommender pattern**:
@@ -117,24 +133,20 @@ LLM should not search the full dataset. Retrieval provides relevance, explainabi
 
 ### How
 1. Input normalization service:
-   - accept numeric amount-for-two and map to budget band
-   - map cuisine synonyms to canonical tags
-   - fuzzy match locality names from curated inventory
+   - accept numeric amount-for-two as **maximum** cost for two (strict filter), or categorical `low`/`medium`/`high` mapped to configured bands
+   - map a **small** cuisine synonym set (typos/aliases); do not merge distinct regional cuisines into one tag
+   - match locality: **exact** (case-insensitive) first, else fuzzy against curated inventory
 2. Hard constraints:
-   - location, min rating, cost band
+   - locality, min rating, budget (numeric max or band), cuisine overlap on parsed list
 3. Soft scoring:
    - cuisine overlap score
    - rating score
    - budget-fit score
    - popularity/proxy score
-4. Fallback tiers:
-   - Tier 1: strict
-   - Tier 2: slightly relaxed budget
-   - Tier 3: relaxed cuisine overlap
-   - Tier 4: nearby/locality widening
-   - Tier 5: top-k completion from global rated pool when strict tiers return too few options
+4. Fallback tiers (as-built default):
+   - **Strict only** for relevance; empty result if nothing matches (`no_candidates`). Relaxed tiers are optional/experimental, not used to fill irrelevant rows in the default product path.
 5. Candidate bundle contract:
-   - top N with compact fields + score breakdown
+   - top N with compact fields + score breakdown; candidates include **locality** for display and deduplication
 
 ### Quality gate
 - Candidate recall tests pass on curated test scenarios.
@@ -169,7 +181,7 @@ Deterministic scoring alone feels mechanical; LLM adds nuanced ordering and huma
 4. Confidence tagging:
    - assign confidence based on filter strictness and match quality
 5. Safe fallback response:
-   - deterministic top-K + template explanation if LLM fails
+   - deterministic top-K from retrieval scores if LLM fails or candidate count is large; deduplicate by `(name, locality)`; explanations may be omitted in UI even if present in API schema
 6. Provider configuration:
    - load `GROQ_API_KEY` from `.env`
    - load model name from `LLM_MODEL` in `.env`
@@ -196,6 +208,8 @@ A strong recommender needs consistent behavior under variable traffic and extern
    - `POST /recommendations`
    - `GET /health`
    - `GET /metrics`
+   - `GET /localities`
+   - `GET /dataset-summary`
 2. Orchestration pipeline:
    - validate input
    - normalize input
@@ -220,29 +234,23 @@ A strong recommender needs consistent behavior under variable traffic and extern
 
 ---
 
-## Phase 5 - UX Layer (Form, Result Cards, Refinement)
+## Phase 5 - UX Layer (Form, Result Cards)
 
 ### Why
 Even high-quality recommendations fail adoption if input is confusing or output is hard to interpret.
 
 ### What
 - Preference capture experience.
-- Result rendering with clear rationale.
-- Refinement loop without re-entering all fields.
+- Result rendering with dataset-grounded fields (locality visible so multi-branch brands are understandable).
 
 ### How
 1. Build form with guided controls:
-   - locality dropdown, numeric amount-for-two, cuisine, min rating, additional preferences
+   - locality dropdown, numeric amount-for-two, cuisine, min rating
 2. Render recommendation cards:
-   - name, cuisine, rating, cost, explanation, fit score
-3. Add refinement actions:
-   - "more budget-friendly"
-   - "higher rated"
-   - "more variety"
-4. Handle non-ideal states:
-   - empty result guidance
-   - low confidence warning
-   - loading and retry UX
+   - name, locality, cuisine, rating, estimated cost (explanation line optional / hidden in UI per product choice)
+3. Handle non-ideal states:
+   - empty result message (“No restaurants found”)
+   - loading and error UX
 
 ### Quality gate
 - Usability run: user reaches a recommendation in <= 4 interactions.

@@ -15,11 +15,12 @@ Phase 0 to Phase 7 implementation scaffold for an AI-powered restaurant recommen
 - `src/phases/phase_1/` - data ingestion, curation, normalization, quality checks
 - `src/phases/phase_2/` - input normalization, retrieval, ranking, fallback logic
 - `src/phases/phase_3/` - Groq LLM ranking, explanation generation, and validation
-- `src/phases/phase_4/` - API orchestration (`/recommendations`, `/metrics`, `/health`)
+- `src/phases/phase_4/` - API orchestration (`/recommendations`, `/metrics`, `/health`, `/localities`, `/dataset-summary`)
 - `src/phases/phase_5/` - React frontend experience layer
 - `src/phases/phase_6/` - evaluation suite and feedback capture
 - `src/phases/phase_7/` - deployment and hardening assets
 - `docs/contracts/` - frozen contract examples for Phase 0
+- `docs/phase-wise-architecture.md` / `docs/phase-wise-architecture-revalidated.md` - architecture (includes **as-built** sections)
 - `docs/phases/` - phase-specific docs and run instructions
 - `tests/` - unit, integration, and e2e test folders
 

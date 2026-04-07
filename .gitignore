@@ -7,6 +7,9 @@ __pycache__/
 node_modules/
 .run/
 
+# Secrets
+.env
+
 # Generated data artifacts
 data/raw/
 data/processed/

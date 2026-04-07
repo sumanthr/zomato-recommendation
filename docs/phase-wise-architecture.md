@@ -1,5 +1,21 @@
 # Zomato AI Recommendation System - Phase-wise Architecture
 
+## As-built implementation (current repository)
+
+This section describes what is implemented today so the narrative below stays aligned with code.
+
+- **Repository layout**: Phase-isolated code under `src/phases/phase_0/` … `phase_7/`; tests under `tests/`; data under `data/raw`, `data/processed`, `data/reports`.
+- **Dataset**: Hugging Face `ManikaSaini/zomato-restaurant-recommendation` (train split). Optional local raw path via `ZOMATO_LOCAL_RAW_PATH` if download is blocked.
+- **Phase 1 curation**: Raw columns are mapped to canonical fields, including HF-specific names: `name` → name; `location` → locality; `listed_in(city)` → city; `rate` → rating; `approx_cost(for two people)` → `avg_cost_for_two`. Output: `data/processed/restaurants.parquet` (row count depends on cleaning/dedup rules).
+- **Phase 2 retrieval**: Filters by **locality** (exact match first, then fuzzy against inventory), **minimum rating**, **cuisine** (substring match on parsed cuisine list; limited synonym map—no broad collapsing of regional Indian labels into a single tag), and **budget**. **Numeric budget** is treated as **maximum cost for two** (`avg_cost_for_two` in `0..budget`). **Categorical** `low` / `medium` / `high` uses fixed bands in `src/phases/phase_2/config.py`. Default path is **strict** retrieval only (no irrelevant backfill). `GET /localities` and `GET /dataset-summary` expose inventory and counts.
+- **Phase 3 LLM**: Groq via `GROQ_API_KEY` and `LLM_MODEL` in `.env`. When the candidate set is large or the provider fails, the service uses **deterministic ranking** from retrieval scores; output is **deduplicated** by `(restaurant_name, locality)` to avoid duplicate cards for multi-branch brands.
+- **Phase 4 API**: FastAPI app in `src/phases/phase_4/api.py` — `POST /recommendations`, `GET /health`, `GET /metrics`, `GET /localities`, `GET /dataset-summary`; CORS via `ALLOWED_ORIGINS` / dev defaults.
+- **Phase 5 UI**: React (Vite) in `src/phases/phase_5/frontend` — locality **dropdown**, numeric budget, cuisine, minimum rating; internal `top_k` up to schema max (see contracts). Cards show **locality, cuisine, rating, cost**; no separate “craving” search bar, chips, or refine buttons in the current UI.
+
+The sections below remain the **target / design** narrative; where they differ from as-built, **as-built wins** for behavior and deployment.
+
+---
+
 ## 1) Vision, Scope, and Success Criteria
 
 ### Purpose
@@ -75,7 +91,7 @@ Build an AI-powered restaurant recommendation application that combines:
 ### Deliverables
 - Standard folder layout:
   - `data/` (raw, interim, processed)
-  - `src/ingestion/`, `src/features/`, `src/recommender/`, `src/api/`, `src/ui/`
+  - `src/phases/phase_0/` … `src/phases/phase_7/` (contracts, ingestion, retrieval, LLM, API, UI, eval, deploy helpers)
   - `configs/` for env and model configs
   - `tests/` for unit/integration/e2e
 - `.env.example` and secret management approach.
@@ -105,13 +121,13 @@ Build an AI-powered restaurant recommendation application that combines:
    - Version dataset metadata (source URL, date, record count).
 
 2. **Schema mapping**
-   - Map raw columns to canonical schema:
+   - Map raw columns to canonical schema (Hugging Face column names in parentheses where applicable):
      - `restaurant_id`
-     - `name`
-     - `location_city`, `locality`
-     - `cuisines` (list)
-     - `avg_cost_for_two`
-     - `rating`
+     - `name` (from `name`)
+     - `location_city` (from `listed_in(city)`), `locality` (from `location`)
+     - `cuisines` (list, parsed from `cuisines`)
+     - `avg_cost_for_two` (from `approx_cost(for two people)`)
+     - `rating` (from `rate`)
      - optional text features (highlights/reviews)
 
 3. **Cleaning and normalization**
@@ -146,11 +162,10 @@ Build an AI-powered restaurant recommendation application that combines:
    - Budget categories:
      - `low`, `medium`, `high` -> cost ranges
    - Numeric budget support:
-     - direct amount for two (for example `1200`) mapped to bands dynamically
+     - direct amount for two used as **maximum** `avg_cost_for_two` (not only coarse bands)
    - Cuisine synonyms:
-     - `north indian`, `indian`
-     - `fast-food`, `quick bites`
-   - Fuzzy match locality (primary input) and not only city.
+     - small map for typos/aliases (e.g. fast food, italian); avoid collapsing distinct regional tags into one bucket
+   - Locality: exact match when possible, else fuzzy match against curated inventory.
 
 2. **Structured filter engine**
    - Apply must-have constraints:
@@ -161,12 +176,9 @@ Build an AI-powered restaurant recommendation application that combines:
    - Rank candidates by weighted formula:
      - score = `w1*rating + w2*cuisine_match + w3*budget_fit + w4*popularity`
 
-3. **Fallback strategy**
-   - If candidate pool too small:
-     - relax constraints in defined order (budget -> cuisine -> locality).
-   - Record fallback reason for transparency.
-   - If returned candidates are still fewer than `top_k`, fill from a global high-quality pool
-     (minimum rating matched, de-duplicated) to always return a useful list.
+3. **Fallback strategy (as-built)**
+   - Primary behavior: **strict** filters only; if no matches, return empty candidates with `no_candidates` tier (no irrelevant global backfill).
+   - Optional relaxed tiers may exist in config for experiments; production UX assumes strict relevance.
 
 4. **Optional semantic retrieval (Phase 2.5)**
    - For additional text preferences (e.g., "family-friendly"):
@@ -242,19 +254,21 @@ Build an AI-powered restaurant recommendation application that combines:
 ### Core API design
 - `POST /recommendations`
   - input:
-    - `location`
-    - `budget`
+    - `location` (locality)
+    - `budget` (numeric max for two, or `low` | `medium` | `high`)
     - `cuisine`
     - `minimum_rating`
-    - `additional_preferences`
-    - `top_k` (default 5)
+    - `additional_preferences` (optional)
+    - `top_k` (default 50 in schema; max 200; often fixed in UI)
   - output:
     - normalized input
-    - ranked recommendations
-    - metadata (latency, fallback_used, model_version)
+    - ranked recommendations (includes `locality` per item when available)
+    - metadata (`prompt_version`, `model_version`, `data_version`, `fallback_tier`)
 
 - `GET /health`
-- `GET /metrics` (if Prometheus style monitoring is enabled)
+- `GET /metrics`
+- `GET /localities` — dropdown inventory from curated data
+- `GET /dataset-summary` — restaurant / locality / city counts
 
 ### Orchestration workflow
 1. Validate request schema.
@@ -281,22 +295,18 @@ Build an AI-powered restaurant recommendation application that combines:
 - Provide simple, intuitive interaction for non-technical users.
 - Make recommendation rationale visible and trustworthy.
 
-### MVP UI components
+### MVP UI components (as-built)
 - Preference form:
   - Locality dropdown (loaded from backend locality inventory)
   - Amount for two (numeric input)
-  - Cuisine selector
-  - Minimum rating slider
-  - Additional preferences free-text
+  - Cuisine text input
+  - Minimum rating numeric input
 - Results panel:
-  - Recommendation cards (name, cuisine, rating, cost)
-  - AI explanation
-  - "Why this matches you" highlights
+  - Recommendation cards (name, locality, cuisine, rating, cost)
+  - Empty state: “No restaurants found” when there are no matches
 
 ### UX enhancements
-- Loading states and skeleton cards.
-- Empty-state suggestions (when no strong matches).
-- Optional "refine your search" chips.
+- Loading states; clear empty state; no mandatory “refine” or top “craving” search bar in current build.
 
 ### Exit criteria
 - User can complete request in < 4 interactions.
