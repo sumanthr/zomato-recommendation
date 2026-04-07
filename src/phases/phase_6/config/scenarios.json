@@ -1,0 +1,24 @@
+[
+  {
+    "name": "Bangalore Italian mid-budget",
+    "payload": {
+      "location": "Bangalore",
+      "budget": "medium",
+      "cuisine": "Italian",
+      "minimum_rating": 4.0,
+      "additional_preferences": "family friendly",
+      "top_k": 5
+    }
+  },
+  {
+    "name": "Delhi budget Indian",
+    "payload": {
+      "location": "Delhi",
+      "budget": "low",
+      "cuisine": "Indian",
+      "minimum_rating": 3.8,
+      "additional_preferences": "quick service",
+      "top_k": 5
+    }
+  }
+]

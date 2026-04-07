@@ -1,0 +1,13 @@
+.venv/
+.nodeenv/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.log
+node_modules/
+.run/
+
+# Generated data artifacts
+data/raw/
+data/processed/
+data/reports/

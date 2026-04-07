@@ -1,0 +1,9 @@
+services:
+  backend:
+    build:
+      context: ../../../../
+      dockerfile: src/phases/phase_7/deploy/Dockerfile.backend
+    env_file:
+      - ../../../../.env
+    ports:
+      - "8000:8000"
