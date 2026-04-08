@@ -124,6 +124,10 @@ npm install
 npm run dev
 ```
 
+Frontend API endpoint is controlled by `VITE_API_BASE_URL`:
+- default: `https://zomato-recommendation.streamlit.app`
+- local override: create `src/phases/phase_5/frontend/.env` from `.env.example`
+
 ### One-command start/stop (backend + frontend)
 
 ```bash

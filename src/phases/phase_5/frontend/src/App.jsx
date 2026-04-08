@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8001";
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL ||
+  "https://zomato-recommendation.streamlit.app";
 
 const initialForm = {
   location: "Indiranagar",
