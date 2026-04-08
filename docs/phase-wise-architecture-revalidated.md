@@ -301,13 +301,14 @@ MVP success creates real traffic and operational pressure; scale-readiness avoid
 - Controlled rollout for model/prompt changes.
 
 ### How
-1. Containerize service and deploy with health checks.
-2. Add auth/rate limiting and secret management.
-3. Add budget safeguards:
+1. Deploy backend service on Streamlit with health checks and runtime monitoring.
+2. Deploy frontend on Vercel and point it to the backend API URL.
+3. Add auth/rate limiting and secret management.
+4. Add budget safeguards:
    - token caps
    - per-request max candidates
    - provider fallback model
-4. Rollout strategy:
+5. Rollout strategy:
    - canary by prompt/model version
    - rollback on KPI or error threshold breaches
 

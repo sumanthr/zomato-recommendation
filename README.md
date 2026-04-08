@@ -148,3 +148,17 @@ python -m src.phases.phase_6.evaluator
 ```bash
 python -m src.phases.phase_7.bootstrap_sample_data
 ```
+
+## Run backend on Streamlit (deployment-compatible)
+
+```bash
+streamlit run streamlit_app.py
+```
+
+For Streamlit Cloud deployment:
+- App file path: `streamlit_app.py`
+- Python dependencies: `requirements.txt`
+- Add secrets/env in Streamlit app settings:
+  - `GROQ_API_KEY`
+  - `LLM_MODEL` (optional; defaults already exist in code)
+  - `CURATED_DATA_PATH` (optional; defaults to `data/processed/restaurants.parquet`)

@@ -357,8 +357,9 @@ Build an AI-powered restaurant recommendation application that combines:
 - Make system production-ready with observability and safe rollout.
 
 ### Deployment architecture
-- Containerized backend service (Docker).
-- Managed hosting (Render/AWS/GCP/Azure).
+- Backend deployment: Streamlit (Streamlit Community Cloud or Streamlit-managed hosting).
+- Frontend deployment: Vercel (React/Vite static build hosting).
+- Backend and frontend communicate over HTTPS with CORS allowlist configured.
 - Optional managed DB for metadata and logs.
 
 ### Production components
