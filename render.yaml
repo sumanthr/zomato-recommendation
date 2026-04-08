@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: zomato-recommendation-api
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn src.phases.phase_4.api:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false
+      - key: LLM_MODEL
+        value: llama-3.1-8b-instant
+      - key: CURATED_DATA_PATH
+        value: data/processed/restaurants.parquet
+      - key: FORCE_SAMPLE_DATA
+        value: "true"
+      - key: ALLOWED_ORIGINS
+        value: https://<your-vercel-domain>

@@ -125,8 +125,9 @@ npm run dev
 ```
 
 Frontend API endpoint is controlled by `VITE_API_BASE_URL`:
-- default: `https://zomato-recommendation.streamlit.app`
+- default: `http://127.0.0.1:8001` (local dev)
 - local override: create `src/phases/phase_5/frontend/.env` from `.env.example`
+- production: set `VITE_API_BASE_URL` to your deployed FastAPI backend URL (not Streamlit app URL)
 
 ### One-command start/stop (backend + frontend)
 
@@ -166,3 +167,14 @@ For Streamlit Cloud deployment:
   - `GROQ_API_KEY`
   - `LLM_MODEL` (optional; defaults already exist in code)
   - `CURATED_DATA_PATH` (optional; defaults to `data/processed/restaurants.parquet`)
+
+## Deploy FastAPI backend (for Vercel frontend)
+
+Your Vercel frontend requires REST API endpoints from `src/phases/phase_4/api.py`.  
+Use a FastAPI host (Render/Railway/Fly/etc.) and point `VITE_API_BASE_URL` to that API URL.
+
+Example Render start command:
+
+```bash
+uvicorn src.phases.phase_4.api:app --host 0.0.0.0 --port $PORT
+```

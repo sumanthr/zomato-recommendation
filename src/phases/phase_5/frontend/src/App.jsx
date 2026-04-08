@@ -1,9 +1,31 @@
 import { useEffect, useMemo, useState } from "react";
 import "./App.css";
 
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ||
-  "https://zomato-recommendation.streamlit.app";
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8001";
+
+async function fetchJson(url, options) {
+  const response = await fetch(url, options);
+  const contentType = response.headers.get("content-type") || "";
+
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(detail || `Request failed (${response.status})`);
+  }
+
+  if (!contentType.includes("application/json")) {
+    const body = await response.text();
+    if (body.includes("share.streamlit.io/-/auth/app")) {
+      throw new Error(
+        "Backend endpoint requires Streamlit auth and is not publicly callable as an API. Deploy/publicize FastAPI backend and set VITE_API_BASE_URL to that API URL."
+      );
+    }
+    throw new Error(
+      "Backend did not return JSON. Check VITE_API_BASE_URL points to FastAPI endpoints (/localities, /recommendations)."
+    );
+  }
+
+  return response.json();
+}
 
 const initialForm = {
   location: "Indiranagar",
@@ -27,19 +49,16 @@ export default function App() {
   useEffect(() => {
     async function loadLocalities() {
       try {
-        const response = await fetch(`${API_BASE}/localities`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch localities");
-        }
-        const data = await response.json();
+        const data = await fetchJson(`${API_BASE}/localities`);
         const values = data.localities || [];
         setLocalities(values);
         if (values.length > 0 && !values.includes(form.location)) {
           setForm((prev) => ({ ...prev, location: values[0] }));
         }
-        const summaryResponse = await fetch(`${API_BASE}/dataset-summary`);
-        if (summaryResponse.ok) {
-          setSummary(await summaryResponse.json());
+        try {
+          setSummary(await fetchJson(`${API_BASE}/dataset-summary`));
+        } catch {
+          setSummary(null);
         }
       } catch (err) {
         setError(err.message);
@@ -53,7 +72,7 @@ export default function App() {
     setError("");
     setHasSearched(true);
     try {
-      const response = await fetch(`${API_BASE}/recommendations`, {
+      const data = await fetchJson(`${API_BASE}/recommendations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -63,11 +82,6 @@ export default function App() {
           top_k: 200
         })
       });
-      if (!response.ok) {
-        const detail = await response.text();
-        throw new Error(detail || "Failed to fetch recommendations");
-      }
-      const data = await response.json();
       setResult(data);
     } catch (err) {
       setError(err.message);
