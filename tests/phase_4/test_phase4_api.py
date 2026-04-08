@@ -52,6 +52,7 @@ def test_recommendations_endpoint_with_fallback(tmp_path: Path, monkeypatch) -> 
     body = response.json()
     assert "recommendations" in body
     assert "metadata" in body
+    assert body["metadata"]["llm_used"] is False
 
 
 def test_localities_endpoint_and_options_preflight() -> None:

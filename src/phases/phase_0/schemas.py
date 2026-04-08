@@ -69,6 +69,7 @@ class RecommendationMetadata(BaseModel):
     model_version: str
     data_version: str
     fallback_tier: str = "none"
+    llm_used: bool = False
 
 
 class RecommendationResponse(BaseModel):

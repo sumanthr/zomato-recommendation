@@ -86,7 +86,8 @@ Validation rules:
     "prompt_version": "v1",
     "model_version": "llama-3.1-8b-instant",
     "data_version": "2026-04-07",
-    "fallback_tier": "strict"
+    "fallback_tier": "strict",
+    "llm_used": false
   }
 }
 ```
@@ -95,4 +96,5 @@ Notes:
 
 - `metadata.model_version` comes from env `LLM_MODEL` (Groq).
 - `metadata.fallback_tier` reflects retrieval outcome (e.g. `strict`, `no_candidates`).
+- `metadata.llm_used` is `true` only when the Groq LLM path executes successfully; `false` means deterministic fallback was used.
 - The React UI may hide `explanation` and show only dataset-grounded fields.

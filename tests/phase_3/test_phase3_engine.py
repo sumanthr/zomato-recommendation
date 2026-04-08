@@ -7,6 +7,7 @@ from src.phases.phase_0.schemas import CandidateRecord, UserPreferenceInput
 from src.phases.phase_3.client import GroqClient
 from src.phases.phase_3.engine import (
     deterministic_fallback,
+    generate_phase3_outcome,
     generate_phase3_recommendations,
     validate_llm_output,
 )
@@ -69,6 +70,32 @@ def test_generate_uses_fallback_when_malformed_json() -> None:
     )
     assert recs[0].restaurant_name == "Pasta Point"
     assert "fallback" in recs[0].explanation.lower()
+
+
+def test_generate_outcome_marks_llm_used_false_on_fallback() -> None:
+    payload = UserPreferenceInput(
+        location="Bangalore", budget="medium", cuisine="Italian", minimum_rating=4.0, top_k=2
+    )
+    outcome = generate_phase3_outcome(payload, _sample_candidates(), client=FakeClient("not-json"))
+    assert outcome.llm_used is False
+    assert len(outcome.recommendations) == 2
+
+
+def test_generate_outcome_marks_llm_used_true_on_valid_llm_json() -> None:
+    payload = UserPreferenceInput(
+        location="Bangalore", budget="medium", cuisine="Italian", minimum_rating=4.0, top_k=2
+    )
+    good_json = (
+        '{"recommendations":['
+        '{"restaurant_id":"r1","explanation":"Strong cuisine and rating match.","fit_score":93},'
+        '{"restaurant_id":"r2","explanation":"Good backup option for budget fit.","fit_score":81}'
+        "]}"
+    )
+    outcome = generate_phase3_outcome(
+        payload, _sample_candidates(), client=FakeClient(good_json)
+    )
+    assert outcome.llm_used is True
+    assert outcome.recommendations[0].restaurant_name == "Pasta Point"
 
 
 def test_groq_connectivity_smoke() -> None:

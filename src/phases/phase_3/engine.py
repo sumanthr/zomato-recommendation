@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -17,6 +18,12 @@ class LLMRecommendation(BaseModel):
 
 class LLMRecommendationBundle(BaseModel):
     recommendations: list[LLMRecommendation]
+
+
+@dataclass
+class Phase3Outcome:
+    recommendations: list[RecommendationItem]
+    llm_used: bool
 
 
 def validate_llm_output(raw_output: str, allowed_ids: set[str]) -> LLMRecommendationBundle:
@@ -58,16 +65,30 @@ def generate_phase3_recommendations(
     candidates: list[CandidateRecord],
     client: GroqClient | None = None,
 ) -> list[RecommendationItem]:
+    return generate_phase3_outcome(user_input, candidates, client=client).recommendations
+
+
+def generate_phase3_outcome(
+    user_input: UserPreferenceInput,
+    candidates: list[CandidateRecord],
+    client: GroqClient | None = None,
+) -> Phase3Outcome:
     if not candidates:
-        return []
+        return Phase3Outcome(recommendations=[], llm_used=False)
     if len(candidates) > 30:
         # Avoid oversized prompts; return deterministic ranking for larger result sets.
-        return deterministic_fallback(candidates, user_input.top_k)
+        return Phase3Outcome(
+            recommendations=deterministic_fallback(candidates, user_input.top_k),
+            llm_used=False,
+        )
 
     try:
         llm_client = client or GroqClient()
     except Exception:
-        return deterministic_fallback(candidates, user_input.top_k)
+        return Phase3Outcome(
+            recommendations=deterministic_fallback(candidates, user_input.top_k),
+            llm_used=False,
+        )
     prompt = build_phase3_prompt(user_input, candidates)
     allowed_ids = {c.restaurant_id for c in candidates}
     lookup = {c.restaurant_id: c for c in candidates}
@@ -76,7 +97,10 @@ def generate_phase3_recommendations(
         raw = llm_client.complete_json(prompt)
         parsed = validate_llm_output(raw, allowed_ids)
     except (ValidationError, ValueError, json.JSONDecodeError, Exception):
-        return deterministic_fallback(candidates, user_input.top_k)
+        return Phase3Outcome(
+            recommendations=deterministic_fallback(candidates, user_input.top_k),
+            llm_used=False,
+        )
 
     results: list[RecommendationItem] = []
     selected_keys: set[tuple[str, str]] = set()
@@ -111,4 +135,4 @@ def generate_phase3_recommendations(
             selected_keys.add(dedupe_key)
             if len(results) >= user_input.top_k:
                 break
-    return results
+    return Phase3Outcome(recommendations=results, llm_used=True)

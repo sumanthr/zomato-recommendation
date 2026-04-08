@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import streamlit as st
 from pydantic import ValidationError
@@ -8,9 +9,21 @@ from pydantic import ValidationError
 from src.phases.phase_0.schemas import RecommendationResponse, UserPreferenceInput
 from src.phases.phase_2.retriever import dataset_summary, list_localities
 from src.phases.phase_4.orchestrator import run_recommendation_orchestration
+from src.phases.phase_7.bootstrap_sample_data import ensure_sample_curated_dataset
 
 
 DEFAULT_CURATED_PATH = "data/processed/restaurants.parquet"
+
+
+def resolve_curated_path() -> tuple[str, bool]:
+    configured = os.getenv("CURATED_DATA_PATH", DEFAULT_CURATED_PATH)
+    force_sample = os.getenv("FORCE_SAMPLE_DATA", "false").strip().lower() == "true"
+    path = Path(configured)
+
+    if force_sample or not path.exists():
+        created = ensure_sample_curated_dataset(output_path=configured)
+        return str(created), True
+    return configured, False
 
 
 @st.cache_data(show_spinner=False)
@@ -48,8 +61,12 @@ def main() -> None:
     )
     st.title("Zomato Recommendation Backend (Streamlit Deployment)")
 
-    curated_path = os.getenv("CURATED_DATA_PATH", DEFAULT_CURATED_PATH)
+    curated_path, used_sample_data = resolve_curated_path()
     st.caption(f"Curated dataset path: `{curated_path}`")
+    if used_sample_data:
+        st.info(
+            "Curated parquet was missing (or FORCE_SAMPLE_DATA=true), so sample data was bootstrapped automatically."
+        )
 
     try:
         summary = get_dataset_summary(curated_path)
